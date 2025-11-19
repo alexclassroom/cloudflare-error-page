@@ -1,8 +1,17 @@
 import os
+import re
 import sys
-from flask import Flask, request, send_from_directory
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from flask import (
+    Flask,
+    json,
+    request,
+    abort,
+    send_from_directory
+)
+
+examples_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(examples_dir))
 from cloudflare_error_page import get_resources_folder, render as render_cf_error_page
 
 app = Flask(__name__)
@@ -20,47 +29,45 @@ if use_cdn:
         return send_from_directory(res_folder, path)
 
 
-@app.route("/")
-def index():
+param_cache: dict[str, dict] = {}
+
+def get_page_params(name: str) -> dict:
+    name = re.sub(r'[/\\]', '', name)
+    params = param_cache.get(name)
+    if params is not None:
+        return params
+    try:
+        with open(os.path.join(examples_dir, f'{name}.json')) as f:
+            params = json.load(f)
+        param_cache[name] = params
+        return params
+    except Exception as _:
+        return None
+
+
+@app.route("/", defaults={'name': 'default'})
+@app.route("/<name>")
+def index(name: str):
+    params = get_page_params(name)
+    if params is None:
+        abort(404)
+
     # Get real Ray ID from Cloudflare header
-    ray_id = request.headers.get('Http-Cf-Ray', '')
+    ray_id = request.headers.get('Cf-Ray')
 
     # Get real client ip from Cloudflare header or request.remote_addr
-    client_ip = request.headers.get('Http-X-Forwarded-For')
+    client_ip = request.headers.get('X-Forwarded-For')
     if not client_ip:
         client_ip = request.remote_addr
 
+    params = {
+        **params,
+        "ray_id": ray_id,
+        "client_ip": client_ip,
+    }
+
     # Render the error page
-    return render_cf_error_page({
-        'html_title': '500: Internal server error',
-        'title': 'Internal server error',
-        'error_code': 500,
-        'more_information': {
-            "hidden": False,
-            "text": "cloudflare.com",
-            "link": "https://youtube.com/watch?v=dQw4w9WgXcQ",
-        },
-        'browser_status': {
-            "status": 'ok',
-        },
-        'cloudflare_status': {
-            "status": 'error',
-            "status_text": 'Not Working',
-        },
-        'host_status': {
-            "status": 'ok',
-            "location": 'example.com',
-        },
-        'error_source': 'cloudflare',  # 'browser', 'cloudflare', or 'host'
-        'what_happened': '<p>There is an internal server error on Cloudflare\'s network.</p>',
-        'what_can_i_do': '<p>Please try again in a few minutes.</p>',
-        'ray_id': ray_id,
-        'client_ip': client_ip,
-        'perf_sec_by': {
-            "text": "Cloudflare",
-            "link": "https://youtube.com/watch?v=dQw4w9WgXcQ",
-        },
-    }, use_cdn=use_cdn), 500
+    return render_cf_error_page(params, use_cdn=use_cdn), 500
 
 
 if __name__ == "__main__":
