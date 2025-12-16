@@ -1,7 +1,15 @@
 import html
 import secrets
+import sys
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypedDict, Literal
+
+if sys.version_info >= (3, 11):
+    from typing import NotRequired
+else:
+    from typing import _SpecialForm
+    NotRequired: _SpecialForm
+
 
 from jinja2 import Environment, PackageLoader, Template, select_autoescape
 
@@ -15,7 +23,53 @@ env = Environment(
 default_template: Template = env.get_template("error.html")
 
 
-def render(params: dict,
+class ErrorPageParams(TypedDict):
+    class MoreInformation(TypedDict):
+        hidden: NotRequired[bool]
+        text: NotRequired[str]
+        link: NotRequired[str]
+        for_text: NotRequired[str]  # renamed to avoid Python keyword conflict
+
+    class StatusItem(TypedDict):
+        status: NotRequired[Literal["ok", "error"]]
+        location: NotRequired[str]
+        name: NotRequired[str]
+        status_text: NotRequired[str]
+        status_text_color: NotRequired[str]
+
+    class PerfSecBy(TypedDict):
+        text: NotRequired[str]
+        link: NotRequired[str]
+    
+    class CreatorInfo(TypedDict):
+        hidden: NotRequired[bool]
+        link: NotRequired[str]
+        text: NotRequired[str]
+
+    html_title: NotRequired[str]
+    title: NotRequired[str]
+    error_code: NotRequired[str]
+    time: NotRequired[str]
+
+    more_information: NotRequired[MoreInformation]
+
+    browser_status: NotRequired[StatusItem]
+    cloudflare_status: NotRequired[StatusItem]
+    host_status: NotRequired[StatusItem]
+
+    error_source: NotRequired[Literal["browser", "cloudflare", "host"]]
+
+    what_happened: NotRequired[str]
+    what_can_i_do: NotRequired[str]
+
+    ray_id: NotRequired[str]
+    client_ip: NotRequired[str]
+
+    perf_sec_by: NotRequired[PerfSecBy]
+    creator_info: NotRequired[CreatorInfo]
+
+
+def render(params: ErrorPageParams,
            allow_html: bool = True,
            template: Template | None = None,
            *args: Any,
@@ -34,6 +88,12 @@ def render(params: dict,
         template = default_template
 
     params = {**params}
+
+    more_information = params.get('more_information')
+    if more_information:
+        for_text = more_information.get('for_text')
+        if for_text is not None:
+            more_information['for'] = for_text
 
     if not params.get('time'):
         utc_now = datetime.now(timezone.utc)

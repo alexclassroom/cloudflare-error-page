@@ -11,6 +11,7 @@ from flask import (
     redirect,
 )
 
+from cloudflare_error_page import ErrorPageParams
 from cloudflare_error_page import render as render_cf_error_page
 from .utils import fill_cf_template_params
 
@@ -22,7 +23,7 @@ bp = Blueprint('examples', __name__, url_prefix='/')
 
 param_cache: dict[str, dict] = {}
 
-def get_page_params(name: str) -> dict:
+def get_page_params(name: str) -> ErrorPageParams:
     name = re.sub(r'[^\w]', '', name)
     params = param_cache.get(name)
     if params is not None:

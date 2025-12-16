@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 
 import os
-import re
 import sys
 
 from flask import (
     Flask,
     request,
-    send_from_directory
 )
 
 # Append this directory to sys.path is not required if the package is already installed
 examples_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(examples_dir))
 
+from cloudflare_error_page import ErrorPageParams
 from cloudflare_error_page import render as render_cf_error_page
 
 app = Flask(__name__)
@@ -21,7 +20,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    params = {
+    params: ErrorPageParams = {
         "title": "Internal server error",
         "error_code": 500,
         "browser_status": {

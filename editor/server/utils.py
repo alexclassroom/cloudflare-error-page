@@ -1,7 +1,9 @@
 import json
 import os
 
+from cloudflare_error_page import ErrorPageParams
 from flask import request
+
 from . import root_dir
 
 
@@ -31,13 +33,13 @@ def get_cf_location(loc: str):
     return data.get('city')
 
 
-def fill_cf_template_params(params: dict):
+def fill_cf_template_params(params: ErrorPageParams):
     # Get the real Ray ID / data center location from Cloudflare header
     ray_id_loc = request.headers.get('Cf-Ray')
     if ray_id_loc:
         params['ray_id'] = ray_id_loc[:16]
 
-        cf_status: dict = params.get('cloudflare_status')
+        cf_status = params.get('cloudflare_status')
         if cf_status is None:
             cf_status = params['cloudflare_status'] = {}
         if not cf_status.get('location'):
@@ -61,7 +63,7 @@ def sanitize_user_link(link: str):
     return '#' + link
 
 
-def sanitize_page_param_links(param: dict):
+def sanitize_page_param_links(param: ErrorPageParams):
     more_info = param.get('more_information')
     if more_info:
         link = more_info.get('link')
