@@ -5,11 +5,16 @@
   - inputs call render() on change
   - "Open in new tab" opens the rendered HTML in a new window using a blob URL
 */
-import { render as render_cf_error_page } from 'cloudflare-error-page';
 
 import 'bootstrap/js/src/modal.js';
 import Popover from 'bootstrap/js/src/popover.js';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-json.js';
+import 'prismjs/components/prism-python.js';
+import { render as render_cf_error_page } from 'cloudflare-error-page';
+
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'prismjs/themes/prism.css';
 
 import { jsCodeGen, jsonCodeGen, pythonCodeGen } from './codegen';
 
@@ -426,16 +431,20 @@ function updateSaveAsDialog(e) {
   }
   const params = { ...lastCfg };
   delete params.time;
+  let language;
   if (codegen) {
     saveAsContent = codegen.generate(params);
+    language = codegen.language;
   } else if (saveAsType == 'static') {
     render(); // rerender the page
     saveAsContent = lastRenderedHtml;
+    language = 'html';
   } else {
     throw new Error('unexpected saveAsType=' + saveAsType);
   }
-  $('saveAsDialogCode').value = saveAsContent;
-  $('saveAsDialogCode').scrollTop = 0;
+  const html = Prism.highlight(saveAsContent, Prism.languages[language], language);
+
+  $('saveAsDialogCode').innerHTML = html;
 
   document.querySelectorAll('#saveAsDialogTypes button').forEach((element) => {
     const isCurrent = element.dataset.type == saveAsType;
@@ -456,10 +465,7 @@ document.querySelectorAll('#saveAsDialogTypes button').forEach((element) => {
 
 const saveAsDialogCopyPopover = new Popover($('saveAsDialogCopyBtn'));
 $('saveAsDialogCopyBtn').addEventListener('click', (e) => {
-  const field = $('saveAsDialogCode');
-  field.select();
-  // field.setSelectionRange(0, field.value.length);
-  navigator.clipboard.writeText(field.value).then(() => {
+  navigator.clipboard.writeText(saveAsContent).then(() => {
     saveAsDialogCopyPopover.show();
     setTimeout(() => {
       saveAsDialogCopyPopover.hide();
